@@ -3,10 +3,9 @@ from tkinter import ttk, simpledialog, messagebox, colorchooser
 import os
 import sys
 
-SNAP_DISTANCE = 30  # Pixel distance to trigger snapping
+SNAP_DISTANCE = 30
 SAVE_FILENAME = "ASCreator.save"
 
-# --- DROPDOWN OPTIONS ---
 ANT_OPTIONS = [
     "Fire ant 1", "Fire ant 2", "Fire ant 3", "Fire ant 4", "Fire ant 5",
     "Weaver ant 1", "Weaver ant 2", "Weaver ant 3",
@@ -34,7 +33,6 @@ OBJECT_OPTIONS = [
 HAND_OPTIONS = ["Main hand", "Off-hand"]
 DIRECTION_OPTIONS = ["Up", "Down", "Left", "Right", "Behind", "In front"]
 
-# --- COLOR PRESETS ---
 BLOCK_COLORS = {
     "Green": "#27AE60",
     "Blue": "#2980B9",
@@ -46,7 +44,6 @@ BLOCK_COLORS = {
 }
 
 
-# --- AUTO-RESIZING ENTRY WIDGET ---
 class AutoResizingEntry(tk.Entry):
     def __init__(self, parent, min_width=3, **kwargs):
         self.min_width = min_width
@@ -62,7 +59,6 @@ class AutoResizingEntry(tk.Entry):
         self.config(width=new_width)
 
 
-# --- BASE BLOCK CLASS ---
 class Block(tk.Frame):
     def __init__(self, parent, title, bg_color, is_palette=False, **kwargs):
         super().__init__(parent, bg=bg_color, bd=2, relief="raised", padx=6, pady=6, **kwargs)
@@ -70,15 +66,12 @@ class Block(tk.Frame):
         self.bg_color = bg_color
         self.is_palette = is_palette
         
-        # Snapping relationships
         self.parent_block = None
         self.child_block = None
         
-        # Dragging state
         self._drag_start_x = 0
         self._drag_start_y = 0
 
-        # Title Label
         if title:
             self.label = tk.Label(self, text=title, bg=bg_color, fg="white", font=("Helvetica", 10, "bold"))
             self.label.pack(side="left", padx=(0, 5))
@@ -87,7 +80,6 @@ class Block(tk.Frame):
         self.bind_events_recursively(self)
 
     def bind_events_recursively(self, widget):
-        """Bind click, drag, right-click menu, and double-click delete to components."""
         is_interactive = isinstance(widget, (ttk.Combobox, tk.Entry, tk.Spinbox, tk.Button))
         right_click_event = "<Button-3>" if sys.platform != "darwin" else "<Button-2>"
         
@@ -111,7 +103,6 @@ class Block(tk.Frame):
         pass
 
     def show_palette_context_menu(self, event):
-        """Override in child classes if palette right-click menu is needed."""
         pass
 
     def get_workspace(self):
@@ -119,7 +110,6 @@ class Block(tk.Frame):
         return getattr(top, 'workspace', self.master)
 
     def show_context_menu(self, event):
-        """Right-click menu to remove block in workspace mode."""
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label="🗑️ Remove Block", command=self.confirm_destroy_block)
         if self.child_block:
@@ -127,11 +117,9 @@ class Block(tk.Frame):
         menu.tk_popup(event.x_root, event.y_root)
 
     def confirm_destroy_block(self, event=None):
-        """Safely destroy this block and heal the chain if sub-blocks exist."""
         self.destroy_block(delete_stack=False)
 
     def destroy_block(self, delete_stack=False):
-        """Unlink connections and remove widget(s)."""
         if delete_stack:
             if self.child_block:
                 self.child_block.destroy_block(delete_stack=True)
@@ -154,7 +142,6 @@ class Block(tk.Frame):
             top.update_workspace_scroll()
 
     def on_palette_click(self, event):
-        """Spawn copy in workspace reliably."""
         workspace = self.get_workspace()
         new_block = self.__class__(workspace)
         
@@ -181,7 +168,6 @@ class Block(tk.Frame):
         self.move_stack(dx, dy)
 
     def on_drag_end(self, event):
-        """Check proximity to other blocks and snap if close enough."""
         workspace = self.get_workspace()
         for widget in workspace.winfo_children():
             if isinstance(widget, Block) and widget is not self and not widget.is_palette:
@@ -230,7 +216,6 @@ class Block(tk.Frame):
             self.child_block.move_stack(dx, dy)
 
 
-# --- DYNAMIC CUSTOM BLOCK ---
 class DynamicCustomBlock(Block):
     def __init__(self, parent, elements_schema=None, color="#27AE60", is_palette=False, block_id=None):
         self.elements_schema = elements_schema or []
@@ -279,11 +264,16 @@ class DynamicCustomBlock(Block):
                 combo.pack(side="left", padx=(0, 4))
 
     def show_palette_context_menu(self, event):
-        """Right-click menu for custom blocks residing in the palette sidebar."""
         menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label="📋 Duplicate", command=self.duplicate_custom_block)
         menu.add_command(label="✏️ Edit", command=self.edit_custom_block)
         menu.add_command(label="🗑️ Delete", command=self.delete_custom_block)
         menu.tk_popup(event.x_root, event.y_root)
+
+    def duplicate_custom_block(self):
+        top = self.winfo_toplevel()
+        if hasattr(top, 'duplicate_custom_block'):
+            top.duplicate_custom_block(self.elements_schema, self.block_color)
 
     def edit_custom_block(self):
         top = self.winfo_toplevel()
@@ -311,8 +301,6 @@ class DynamicCustomBlock(Block):
         if hasattr(top, 'update_workspace_scroll'):
             top.update_workspace_scroll()
 
-
-# --- ACTION BLOCKS ---
 
 class HealAntBlock(Block):
     def __init__(self, parent, is_palette=False):
@@ -441,8 +429,6 @@ class ChangeItemHandBlock(Block):
         self.combo_obj.pack(side="left")
 
 
-# --- CONTROL BLOCKS ---
-
 class IfDoBlock(Block):
     def __init__(self, parent, is_palette=False):
         super().__init__(parent, "if", "#FF5722", is_palette)
@@ -478,8 +464,6 @@ class IfDoElseBlock(Block):
         self.action_slot2 = tk.Label(self, text=" [  ] ", bg="#E64A19", fg="white", font=("Helvetica", 9))
         self.action_slot2.pack(side="left")
 
-
-# --- CHECK BLOCKS ---
 
 class CheckDisplayNameBlock(Block):
     def __init__(self, parent, is_palette=False):
@@ -526,8 +510,6 @@ class CheckTouchesBlock(Block):
         self.combo_obj.current(0)
         self.combo_obj.pack(side="left")
 
-
-# --- VARIABLE & REPORTERS BLOCKS ---
 
 class GetCoordBlock(Block):
     def __init__(self, parent, coord_name="X", is_palette=False):
@@ -612,8 +594,6 @@ class GetPositionVariableBlock(Block):
         self.combo_dir.current(0)
         self.combo_dir.pack(side="left")
 
-
-# --- CUSTOM BLOCK CREATOR MODAL ---
 
 class CustomBlockCreatorDialog(tk.Toplevel):
     def __init__(self, parent, on_create_callback, initial_schema=None, initial_color="#27AE60", is_editing=False):
@@ -877,8 +857,6 @@ class CustomBlockCreatorDialog(tk.Toplevel):
         self.destroy()
 
 
-# --- MAIN APPLICATION FRAMEWORK ---
-
 class MakeBlockApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -919,19 +897,37 @@ class MakeBlockApp(tk.Tk):
         self.workspace.config(scrollregion=(0, 0, 3000, 3000))
 
     def setup_tabs(self):
-        tab_actions = tk.Frame(self.notebook, bg="#2C3E50")
-        self.notebook.add(tab_actions, text=" Actions & Logic ")
+        def create_scrollable_tab(notebook, title):
+            tab_frame = tk.Frame(notebook, bg="#2C3E50")
+            notebook.add(tab_frame, text=title)
 
-        tab_checks = tk.Frame(self.notebook, bg="#2C3E50")
-        self.notebook.add(tab_checks, text=" Check Blocks ")
+            canvas = tk.Canvas(tab_frame, bg="#2C3E50", highlightthickness=0)
+            scrollbar = tk.Scrollbar(tab_frame, orient="vertical", command=canvas.yview)
+            scrollable_inner_frame = tk.Frame(canvas, bg="#2C3E50")
 
-        tab_vars = tk.Frame(self.notebook, bg="#2C3E50")
-        self.notebook.add(tab_vars, text=" Variables ")
+            scrollable_inner_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
 
-        self.tab_custom = tk.Frame(self.notebook, bg="#2C3E50")
-        self.notebook.add(self.tab_custom, text=" Custom Blocks ")
+            canvas.create_window((0, 0), window=scrollable_inner_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
 
-        # Actions & Logic
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+
+            def _on_mousewheel(event):
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+            return scrollable_inner_frame
+
+        tab_actions = create_scrollable_tab(self.notebook, " Actions & Logic ")
+        tab_checks = create_scrollable_tab(self.notebook, " Check Blocks ")
+        tab_vars = create_scrollable_tab(self.notebook, " Variables ")
+        self.tab_custom = create_scrollable_tab(self.notebook, " Custom Blocks ")
+
         tk.Label(tab_actions, text="ACTIONS", bg="#2C3E50", fg="#BDC3C7", font=("Helvetica", 9, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
         HealAntBlock(tab_actions, is_palette=True).pack(anchor="w", padx=10, pady=3)
         KillAntBlock(tab_actions, is_palette=True).pack(anchor="w", padx=10, pady=3)
@@ -945,13 +941,11 @@ class MakeBlockApp(tk.Tk):
         IfDoBlock(tab_actions, is_palette=True).pack(anchor="w", padx=10, pady=3)
         IfDoElseBlock(tab_actions, is_palette=True).pack(anchor="w", padx=10, pady=3)
 
-        # Check Blocks
         tk.Label(tab_checks, text="CONDITIONS & CHECKS", bg="#2C3E50", fg="#BDC3C7", font=("Helvetica", 9, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
         CheckDisplayNameBlock(tab_checks, is_palette=True).pack(anchor="w", padx=10, pady=4)
         CheckInsideWaterBlock(tab_checks, is_palette=True).pack(anchor="w", padx=10, pady=4)
         CheckTouchesBlock(tab_checks, is_palette=True).pack(anchor="w", padx=10, pady=4)
 
-        # Variables
         tk.Label(tab_vars, text="VARIABLES & REPORTERS", bg="#2C3E50", fg="#BDC3C7", font=("Helvetica", 9, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
         MaxHealthVariableBlock(tab_vars, is_palette=True).pack(anchor="w", padx=10, pady=4)
         TargetAntVariableBlock(tab_vars, is_palette=True).pack(anchor="w", padx=10, pady=4)
@@ -970,7 +964,6 @@ class MakeBlockApp(tk.Tk):
 
         GetPositionVariableBlock(tab_vars, is_palette=True).pack(anchor="w", padx=10, pady=4)
 
-        # Custom Blocks Tab Setup
         btn_add_custom = tk.Button(self.tab_custom, text="+ Add Custom Block", bg="#27AE60", fg="white", 
                                    font=("Helvetica", 10, "bold"), padx=10, pady=5, command=self.open_custom_dialog)
         btn_add_custom.pack(anchor="w", padx=10, pady=10)
@@ -987,6 +980,16 @@ class MakeBlockApp(tk.Tk):
         self.custom_blocks_list.append(block_data)
         self.render_custom_block_in_palette(block_data)
         self.save_custom_blocks()
+
+    def duplicate_custom_block(self, schema, color):
+        cloned_schema = []
+        for elem in schema:
+            elem_copy = elem.copy()
+            if isinstance(elem_copy.get("val"), list):
+                elem_copy["val"] = list(elem_copy["val"])
+            cloned_schema.append(elem_copy)
+            
+        self.add_custom_block(cloned_schema, color)
 
     def edit_custom_block(self, block_id, current_schema, current_color):
         def on_save_edit(new_schema, new_color):
